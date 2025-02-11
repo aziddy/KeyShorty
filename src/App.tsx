@@ -196,9 +196,9 @@ function App() {
         </Dialog>
       </header>
 
-      <div className="grid gap-6">
+      <div className="flex flex-wrap gap-6">
         {applications.map((app) => (
-          <div key={app.id} className="rounded-lg border bg-card text-card-foreground shadow">
+          <div key={app.id} className="rounded-lg border bg-card text-card-foreground shadow w-full lg:w-[480px]">
             <div className="flex items-center justify-between p-6">
               <h2 className="text-2xl font-semibold">{app.name}</h2>
               <div className="flex gap-2">
