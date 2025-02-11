@@ -66,6 +66,39 @@ app.post('/api/shortcuts', (req, res) => {
   }
 });
 
+// Delete an application
+app.delete('/api/applications/:id', (req, res) => {
+  const { id } = req.params;
+  try {
+    // First delete all shortcuts associated with the application
+    db.prepare('DELETE FROM shortcuts WHERE application_id = ?').run(id);
+    // Then delete the application
+    const result = db.prepare('DELETE FROM applications WHERE id = ?').run(id);
+    if (result.changes === 0) {
+      res.status(404).json({ error: 'Application not found' });
+      return;
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Delete a shortcut
+app.delete('/api/shortcuts/:id', (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = db.prepare('DELETE FROM shortcuts WHERE id = ?').run(id);
+    if (result.changes === 0) {
+      res.status(404).json({ error: 'Shortcut not found' });
+      return;
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
