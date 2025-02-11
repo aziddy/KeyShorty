@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Keyboard, Plus, Trash2 } from 'lucide-react';
+import { Keyboard, Plus, Trash2, Pencil } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { useError } from '@/lib/error-context';
 import {
@@ -30,6 +30,8 @@ function App() {
   const [shortcuts, setShortcuts] = useState<{ [key: number]: Shortcut[] }>({});
   const [newAppName, setNewAppName] = useState('');
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
+  const [editingApp, setEditingApp] = useState<Application | null>(null);
+  const [editingShortcut, setEditingShortcut] = useState<Shortcut | null>(null);
   const [newShortcut, setNewShortcut] = useState({
     key_combination: '',
     description: ''
@@ -158,6 +160,51 @@ function App() {
     }
   };
 
+  const handleEditApplication = async (appId: number, newName: string) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/applications/${appId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: newName }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to edit application: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setApplications(applications.map(app => app.id === appId ? data : app));
+      setEditingApp(null);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Failed to edit application');
+    }
+  };
+
+  const handleEditShortcut = async (shortcutId: number, appId: number, updates: Partial<Shortcut>) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/shortcuts/${shortcutId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to edit shortcut: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setShortcuts(prev => ({
+        ...prev,
+        [appId]: prev[appId].map(s => s.id === shortcutId ? data : s)
+      }));
+      setEditingShortcut(null);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Failed to edit shortcut');
+    }
+  };
+
   return (
     <div className="container mx-auto py-8">
       <header className="flex items-center justify-between mb-8">
@@ -200,52 +247,87 @@ function App() {
         {applications.map((app) => (
           <div key={app.id} className="rounded-lg border bg-card text-card-foreground shadow w-full lg:w-[480px]">
             <div className="flex items-center justify-between p-6">
-              <h2 className="text-2xl font-semibold">{app.name}</h2>
+              <h2 className="text-2xl font-semibold">
+                {editingApp?.id === app.id ? (
+                  <input
+                    className="rounded-md border border-input bg-transparent px-3 py-1 text-xl font-semibold"
+                    value={editingApp.name}
+                    onChange={(e) => setEditingApp({ ...editingApp, name: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleEditApplication(app.id, editingApp.name);
+                      } else if (e.key === 'Escape') {
+                        setEditingApp(null);
+                      }
+                    }}
+                    autoFocus
+                  />
+                ) : (
+                  app.name
+                )}
+              </h2>
               <div className="flex gap-2">
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" onClick={() => setSelectedApp(app)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Shortcut
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add New Shortcut</DialogTitle>
-                      <DialogDescription>
-                        Add a new keyboard shortcut for {app.name}.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <input
-                          className="col-span-4 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                          value={newShortcut.key_combination}
-                          onChange={(e) => setNewShortcut(prev => ({ ...prev, key_combination: e.target.value }))}
-                          placeholder="Key combination (e.g., Ctrl+C)"
-                        />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <input
-                          className="col-span-4 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                          value={newShortcut.description}
-                          onChange={(e) => setNewShortcut(prev => ({ ...prev, description: e.target.value }))}
-                          placeholder="Description"
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button onClick={handleAddShortcut}>Add Shortcut</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-                <Button 
-                  variant="destructive" 
-                  onClick={() => handleDeleteApplication(app.id)}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setEditingApp(app)}
                 >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete App
+                  <Pencil className="h-4 w-4" />
                 </Button>
+                {editingApp?.id !== app.id && (
+                  <>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" onClick={() => setSelectedApp(app)}>
+                          <Plus className="mr-2 h-4 w-4" />
+                          <div className="flex flex-col">
+                            <span>Add</span>
+                            <span className="-mt-1.5">Shortcut</span>
+                          </div>
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add New Shortcut</DialogTitle>
+                          <DialogDescription>
+                            Add a new keyboard shortcut for {app.name}.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                          <div className="grid grid-cols-4 items-center gap-4">
+                            <input
+                              className="col-span-4 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                              value={newShortcut.key_combination}
+                              onChange={(e) => setNewShortcut(prev => ({ ...prev, key_combination: e.target.value }))}
+                              placeholder="Key combination (e.g., Ctrl+C)"
+                            />
+                          </div>
+                          <div className="grid grid-cols-4 items-center gap-4">
+                            <input
+                              className="col-span-4 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                              value={newShortcut.description}
+                              onChange={(e) => setNewShortcut(prev => ({ ...prev, description: e.target.value }))}
+                              placeholder="Description"
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button onClick={handleAddShortcut}>Add Shortcut</Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                    <Button 
+                      variant="destructive" 
+                      onClick={() => handleDeleteApplication(app.id)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      <div className="flex flex-col">
+                        <span>Delete</span>
+                        <span className="-mt-1.5">App</span>
+                      </div>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
             <div className="p-6 pt-0">
@@ -254,19 +336,55 @@ function App() {
                   key={shortcut.id}
                   className="flex items-center justify-between py-2 border-t first:border-t-0"
                 >
-                  <div className="flex items-center gap-4">
-                    <kbd className="px-2 py-1 bg-muted rounded text-sm font-semibold">
-                      {shortcut.key_combination}
-                    </kbd>
-                    <span>{shortcut.description}</span>
+                  {editingShortcut?.id === shortcut.id ? (
+                    <div className="flex items-center gap-4 flex-1">
+                      <input
+                        className="px-2 py-1 bg-muted rounded text-sm font-semibold w-32"
+                        value={editingShortcut.key_combination}
+                        onChange={(e) => setEditingShortcut({ ...editingShortcut, key_combination: e.target.value })}
+                        placeholder="Key combination"
+                      />
+                      <input
+                        className="flex-1 px-2 py-1 rounded"
+                        value={editingShortcut.description}
+                        onChange={(e) => setEditingShortcut({ ...editingShortcut, description: e.target.value })}
+                        placeholder="Description"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleEditShortcut(shortcut.id, app.id, {
+                              key_combination: editingShortcut.key_combination,
+                              description: editingShortcut.description
+                            });
+                          } else if (e.key === 'Escape') {
+                            setEditingShortcut(null);
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-4">
+                      <kbd className="px-2 py-1 bg-muted rounded text-sm font-semibold">
+                        {shortcut.key_combination}
+                      </kbd>
+                      <span>{shortcut.description}</span>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingShortcut(shortcut)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteShortcut(shortcut.id, app.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteShortcut(shortcut.id, app.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
                 </div>
               ))}
             </div>

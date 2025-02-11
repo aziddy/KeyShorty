@@ -47,6 +47,24 @@ app.post('/api/applications', (req, res) => {
   }
 });
 
+// Edit an application
+app.put('/api/applications/:id', (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+  try {
+    const result = db.prepare(
+      'UPDATE applications SET name = ? WHERE id = ?'
+    ).run(name, id);
+    if (result.changes === 0) {
+      res.status(404).json({ error: 'Application not found' });
+      return;
+    }
+    res.json({ id: parseInt(id), name });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // Get shortcuts for an application
 app.get('/api/applications/:id/shortcuts', (req, res) => {
   const shortcuts = db.prepare('SELECT * FROM shortcuts WHERE application_id = ?').all(req.params.id);
@@ -94,6 +112,25 @@ app.delete('/api/shortcuts/:id', (req, res) => {
       return;
     }
     res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Edit a shortcut
+app.put('/api/shortcuts/:id', (req, res) => {
+  const { id } = req.params;
+  const { key_combination, description } = req.body;
+  try {
+    const result = db.prepare(
+      'UPDATE shortcuts SET key_combination = ?, description = ? WHERE id = ?'
+    ).run(key_combination, description, id);
+    if (result.changes === 0) {
+      res.status(404).json({ error: 'Shortcut not found' });
+      return;
+    }
+    const updatedShortcut = db.prepare('SELECT * FROM shortcuts WHERE id = ?').get(id);
+    res.json(updatedShortcut);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

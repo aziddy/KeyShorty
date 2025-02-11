@@ -17,13 +17,8 @@ KeyShorty is a simple and elegant application to help you keep track of keyboard
 
 ## Installation
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/KeyShorty.git
-cd KeyShorty
-```
 
-2. Install dependencies:
+1. Install dependencies:
 ```bash
 npm install
 ```
@@ -53,6 +48,3 @@ This will start:
 - Backend: Express.js with SQLite database
 - Build tool: Vite
 
-## License
-
-MIT
